@@ -5,7 +5,8 @@ OCAMLOPT=ocamlopt.opt
 OCOPTS=
 ROBOBJS=rob_position.cmo rob_misc.cmo rob_object.cmo rob_monster.cmo rob_path.cmo rob_action.cmo robot.cmo
 OBJS=$(ROBOBJS) efield.cmo rfield.cmo imisc.cmo imonster.cmo object.cmo level.cmo translate.cmo curses.cmo rogbotio.cmo init.cmo dialogue.cmo misc.cmo finish.cmo monster.cmo attack.cmo move.cmo use.cmo main.cmo 
-LIBS=unix.cma -I +camlp5 gramlib.cma
+CAMLP5INCLUDE=-I $$(camlp5 -where)
+LIBS=unix.cma $(CAMLP5INCLUDE) gramlib.cma
 ROGBOT_OBJS=$(ROBOBJS) rogbot.cmo
 SRCS=$(OBJS:.cmo=.ml)
 ROGBOT_SRCS=rogbot.ml
@@ -82,19 +83,19 @@ $(OBJS) $(OBJS:.cmo=.cmx): $(EXT)
 
 ext/%.cmo: ext/%.ml
 	camlp5r $(CAMLP5OPTS) -loc loc $< -o ext/$*.ppo
-	$(OCAMLC) $(OCOPTS) -I +camlp5 -c -impl ext/$*.ppo
+	$(OCAMLC) $(OCOPTS) $(CAMLP5INCLUDE) -c -impl ext/$*.ppo
 	rm -f ext/$*.ppo
 
 .SUFFIXES: .ml .mli .cmo .cmx .cmi .def .defo
 
 .ml.cmo:
 	$(CAMLP5) $(CAMLP5OPTS) $< -o $*.ppo
-	$(OCAMLC) -g $(OCOPTS) -I +camlp5 -c -impl $*.ppo
+	$(OCAMLC) -g $(OCOPTS) $(CAMLP5INCLUDE) -c -impl $*.ppo
 	rm -f $*.ppo
 
 .ml.cmx:
 	$(CAMLP5) $(CAMLP5OPTS) $< -o $*.ppo
-	$(OCAMLOPT) $(OCOPTS) -I +camlp5 -c -impl $*.ppo
+	$(OCAMLOPT) $(OCOPTS) $(CAMLP5INCLUDE) -c -impl $*.ppo
 	rm -f $*.ppo
 
 .mli.cmi:

@@ -372,16 +372,16 @@ value display_dungeon g buf =
 value restore fname = do {
   let ic = open_in_bin fname in
   let b = string_create (String.length save_magic) in
-  really_input ic b 0 (String.length b);
-  if b = save_magic then do {
-    let (g, buf) : saved = input_value ic in
+  really_input ic b 0 (Bytes.length b);
+  if Bytes.to_string b = save_magic then do {
+    let (g, buf) = (input_value ic : saved) in
     display_dungeon g buf;
     close_in ic;
     Sys.remove fname;
     g
   }
-  else if b = old_save_magic then do {
-    let (old_g, buf) : old_saved = input_value ic in
+  else if Bytes.to_string b = old_save_magic then do {
+    let (old_g, buf) = (input_value ic : old_saved) in
     let g = g_of_old_g old_g in
     display_dungeon g buf;
     close_in ic;
@@ -390,7 +390,7 @@ value restore fname = do {
   }
   else do {
     close_in ic;
-    failwith (sprintf "not a mlrogue saved file %s" b)
+    failwith (sprintf "not a mlrogue saved file %s" (Bytes.to_string b))
   }
 };
 

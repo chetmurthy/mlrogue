@@ -3,7 +3,7 @@
 open Rob_position;
 
 type dung =
-  { tab : array string;
+  { tab : array bytes;
     nrow : int;
     ncol : int }
 ;
@@ -78,7 +78,7 @@ type game =
     nb_of_reinit_search : mutable int;
     traps : Hashtbl.t position (option (option trap_kind));
     paradise : mutable bool;
-    hist_dung : mutable list (array string);
+    hist_dung : mutable list (array bytes);
     dead : mutable bool }
 and pack_obj =
   [ Parmor of armor_obj
@@ -386,7 +386,7 @@ type lang =
     is_wand_of_cancellation : string -> bool;
     is_wand_of_magic_missile : string -> bool;
     is_weapon : string -> bool;
-    message_more : string -> string;
+    message_more : bytes -> bytes;
     monsters : string }
 ;
 

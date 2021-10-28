@@ -4,4 +4,4 @@ type t = 'abstract;
 
 value make : string -> t;
 value reinit : bool -> t -> t -> t;
-value play : array string -> int -> int -> t -> (char * t);
+value play : array bytes -> int -> int -> t -> (char * t);

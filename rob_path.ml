@@ -291,28 +291,28 @@ value list_cannot_move_to = ['-'; '|'];
 value has_door_above g (rmin, cmin, rmax, cmax) =
   loop cmin where rec loop col =
     if col > cmax then False
-    else if g.dung.tab.(rmin-1).[col] = '-' then loop (col + 1)
+    else if Bytes.get g.dung.tab.(rmin-1) col = '-' then loop (col + 1)
     else True
 ;
 
 value has_door_below g (rmin, cmin, rmax, cmax) =
   loop cmin where rec loop col =
     if col > cmax then False
-    else if g.dung.tab.(rmax+1).[col] = '-' then loop (col + 1)
+    else if Bytes.get g.dung.tab.(rmax+1) col = '-' then loop (col + 1)
     else True
 ;
 
 value has_door_at_left g (rmin, cmin, rmax, cmax) =
   loop rmin where rec loop row =
     if row > rmax then False
-    else if g.dung.tab.(row).[cmin-1] = '|' then loop (row + 1)
+    else if Bytes.get g.dung.tab.(row) (cmin-1) = '|' then loop (row + 1)
     else True
 ;
 
 value has_door_at_right g (rmin, cmin, rmax, cmax) =
   loop rmin where rec loop row =
     if row > rmax then False
-    else if g.dung.tab.(row).[cmax+1] = '|' then loop (row + 1)
+    else if Bytes.get g.dung.tab.(row) (cmax+1) = '|' then loop (row + 1)
     else True
 ;
 
@@ -331,8 +331,8 @@ value make_graph g insist = do {
                 let room = current_room g pos in
                 let in_room = room <> None in
                 let at_door = is_at_door g pos in
-                if List.mem g.dung.tab.(row).[col] list_cannot_move_to ||
-                   g.dung.tab.(row).[col] = ' ' && not in_room
+                if List.mem (Bytes.get g.dung.tab.(row) col) list_cannot_move_to ||
+                   Bytes.get g.dung.tab.(row) col = ' ' && not in_room
                 then
                   let conn = Array.make 8 False in
                   {connection = conn; search = NotToSearch}
@@ -354,7 +354,7 @@ value make_graph g insist = do {
                         let rr = room_row room in
                         let rc = room_col room in
                         g.level >= 3 &&
-                        g.dung.tab.(row).[col] <> '^' &&
+                        Bytes.get g.dung.tab.(row) col <> '^' &&
                           (row = rmin && rr <> 0 &&
                              (insist || not g.visited.(rr-1).(rc)) &&
                              not (has_door_above g room) ||

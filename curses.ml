@@ -9,8 +9,8 @@ type data =
     ccol : mutable int;
     nrow : mutable int;
     ncol : mutable int;
-    bcur : mutable array string;
-    bnew : mutable array string;
+    bcur : mutable array bytes;
+    bnew : mutable array bytes;
     acur : mutable array (array attr);
     anew : mutable array (array attr);
     attr_set : mutable attr;
@@ -121,19 +121,19 @@ value print_encode_char c =
 
 value cprint_string s = if d.no_output then () else print_string s;
 
-value update c n ac an i jbeg j = do {
+value update c (n : bytes) ac an i jbeg j = do {
   if i = d.crow && jbeg = d.ccol then ()
   else if i = d.crow && jbeg = d.ccol - 1 then cprint_string "\b"
   else if i = d.crow && jbeg = d.ccol + 1 then do {
     set_attr an.(d.ccol);
-    print_encode_char n.[d.ccol]
+    print_encode_char (Bytes.get n d.ccol)
   }
   else if d.no_output then ()
   else printf "\027[%d;%dH" (i+1) (jbeg+1);
   if jbeg = j - 1 then do {
     set_attr an.(jbeg);
-    print_encode_char n.[jbeg];
-    string_set c jbeg n.[jbeg];
+    print_encode_char (Bytes.get n jbeg);
+    string_set c jbeg (Bytes.get n jbeg);
     ac.(jbeg) := an.(jbeg)
   }
   else do {
@@ -145,16 +145,16 @@ value update c n ac an i jbeg j = do {
     in
     if same_attr then do {
       set_attr an.(jbeg);
-      for k = jbeg to j - 1 do { print_encode_char n.[k] };
+      for k = jbeg to j - 1 do { print_encode_char (Bytes.get n k) };
     }
     else do {
       for k = jbeg to j - 1 do {
         set_attr an.(k);
-        print_encode_char n.[k];
+        print_encode_char (Bytes.get n k);
       }
     };
     for k = jbeg to j - 1 do {
-      string_set c k n.[k];
+      string_set c k (Bytes.get n k);
       ac.(k) := an.(k);
     }
   };
@@ -163,9 +163,9 @@ value update c n ac an i jbeg j = do {
 };
 
 value rec gap_equal k c n j =
-  if k = 0 || j >= String.length c then False
+  if k = 0 || j >= Bytes.length c then False
   else
-    if c.[j] <> n.[j] then True
+    if Bytes.get c j <> Bytes.get n j then True
     else gap_equal (k - 1) c n (j + 1)
 ;
 
@@ -176,11 +176,11 @@ value cflush () = do {
     let ac = d.acur.(i) in
     let an = d.anew.(i) in
     if c <> n || ac <> an then
-      let len = String.length c in
+      let len = Bytes.length c in
       loop_j 0 0 where rec loop_j jbeg j =
         if j = len then
           if jbeg < j then update c n ac an i jbeg j else ()
-        else if c.[j] <> n.[j] || ac.(j) <> an.(j) then loop_j jbeg (j + 1)
+        else if Bytes.get c j <> Bytes.get n j || ac.(j) <> an.(j) then loop_j jbeg (j + 1)
         else if jbeg < j then
           if j + 1 < len && gap_equal 8 c n (j + 1) then loop_j jbeg (j + 1)
           else do {
@@ -201,13 +201,13 @@ value cflush () = do {
       else if d.ccol = d.ncol + 5 then cprint_string "\b\b\b\b\b"
       else if d.ccol = d.ncol - 1 then do {
         set_attr d.anew.(d.crow).(d.ccol);
-        print_encode_char n.[d.ccol]
+        print_encode_char (Bytes.get n d.ccol)
       }
       else if d.ccol = d.ncol - 2 then do {
         set_attr d.anew.(d.crow).(d.ccol);
-        print_encode_char n.[d.ccol];
+        print_encode_char (Bytes.get n d.ccol);
         set_attr d.anew.(d.crow).(d.ccol+1);
-        print_encode_char n.[d.ccol+1]
+        print_encode_char (Bytes.get n (d.ccol+1))
       }
       else if d.no_output then ()
       else printf "\027[%d;%dH" (d.nrow+1) (d.ncol+1)
@@ -263,10 +263,10 @@ value clear () = do {
   cprint_string "\027[H";
   cprint_string vt_erase_in_display;
   for i = 0 to Array.length d.bcur - 1 do {
-    string_fill d.bcur.(i) 0 (String.length d.bcur.(i)) ' ';
-    string_fill d.bnew.(i) 0 (String.length d.bnew.(i)) ' ';
-    Array.fill d.acur.(i) 0 (String.length d.bcur.(i)) no_attr;
-    Array.fill d.anew.(i) 0 (String.length d.bnew.(i)) no_attr;
+    string_fill d.bcur.(i) 0 (Bytes.length d.bcur.(i)) ' ';
+    string_fill d.bnew.(i) 0 (Bytes.length d.bnew.(i)) ' ';
+    Array.fill d.acur.(i) 0 (Bytes.length d.bcur.(i)) no_attr;
+    Array.fill d.anew.(i) 0 (Bytes.length d.bnew.(i)) no_attr;
   };
   d.crow := 0;
   d.ccol := 0;
@@ -279,9 +279,9 @@ value clrtoeol () = do {
   cprint_string vt_erase_line_from_cursor;
   if check d.crow d.ccol && check d.nrow d.ncol then do {
     let s = d.bcur.(d.crow) in
-    string_fill s d.ccol (String.length s - d.ccol) ' ';
+    string_fill s d.ccol (Bytes.length s - d.ccol) ' ';
     let s = d.bnew.(d.nrow) in
-    string_fill s d.ccol (String.length s - d.ncol) ' ';
+    string_fill s d.ccol (Bytes.length s - d.ncol) ' ';
     let s = d.acur.(d.nrow) in
     Array.fill s d.ccol (Array.length s - d.ncol) no_attr;
     let s = d.anew.(d.nrow) in
@@ -318,23 +318,23 @@ value initscr () = do {
   }
   else do {
     let fd = tty_fd () in
-    let s = "\027[99;99H" ^ vt_device_status_report in
-    let len = Unix.write fd s 0 (String.length s) in
-    if len <> String.length s then failwith "Curses.initscr" else ();
+    let s = Bytes.of_string ("\027[99;99H" ^ vt_device_status_report) in
+    let len = Unix.write fd s 0 (Bytes.length s) in
+    if len <> Bytes.length s then failwith "Curses.initscr" else ();
     set_edit ();
     let line =
-      let buff = String.make 20 ' ' in
+      let buff = Bytes.make 20 ' ' in
       loop_i 0 where rec loop_i i =
         let (icl, _, _) = Unix.select [fd] [] [] 1.0 in
-        if icl = [] then String.sub buff 0 i
+        if icl = [] then Bytes.sub buff 0 i
         else
-          let len = Unix.read fd buff i (String.length buff - i) in
-          if len = 0 || String.contains buff 'R' then
-            String.sub buff 0 (i + len)
+          let len = Unix.read fd buff i (Bytes.length buff - i) in
+          if len = 0 || Bytes.contains buff 'R' then
+            Bytes.sub buff 0 (i + len)
           else loop_i (i + len)
     in
     try
-      Scanf.sscanf line "\027[%d;%dR"
+      Scanf.sscanf (Bytes.to_string line) "\027[%d;%dR"
         (fun x y -> do { d.max_row := x; d.max_col := y })
     with
     [ Scanf.Scan_failure _ | End_of_file -> do {
@@ -342,8 +342,8 @@ value initscr () = do {
         d.max_col := 80;
       } ];
   };
-  d.bcur := Array.init d.max_row (fun _ -> String.make d.max_col ' ');
-  d.bnew := Array.init d.max_row (fun _ -> String.make d.max_col ' ');
+  d.bcur := Array.init d.max_row (fun _ -> Bytes.make d.max_col ' ');
+  d.bnew := Array.init d.max_row (fun _ -> Bytes.make d.max_col ' ');
   d.acur := Array.init d.max_row (fun _ -> Array.make d.max_col no_attr);
   d.anew := Array.init d.max_row (fun _ -> Array.make d.max_col no_attr);
   d.attr_set := no_attr;
@@ -401,7 +401,7 @@ value mvaddstr row col s = do {
 value mvinch row col = do {
   d.nrow := row;
   d.ncol := col;
-  if check row col then d.bnew.(row).[col] else ' ';
+  if check row col then Bytes.get d.bnew.(row) col else ' ';
 };
 
 value refresh () = do {
@@ -416,7 +416,7 @@ value wrefresh_curscr () = do {
   cprint_string "\027[H";
   cprint_string vt_erase_in_display;
   for i = 0 to Array.length d.bcur - 1 do {
-    string_fill d.bcur.(i) 0 (String.length d.bcur.(i)) ' ';
+    string_fill d.bcur.(i) 0 (Bytes.length d.bcur.(i)) ' ';
   };
   d.crow := 0;
   d.ccol := 0;

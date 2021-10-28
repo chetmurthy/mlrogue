@@ -133,9 +133,9 @@ value lang_en =
         " spear"; " sword"]
       [];
    message_more s =
-     loop [" -- More --"; "--More--"] where rec loop =
+     Bytes.of_string (loop [" -- More --"; "--More--"]) where rec loop =
        fun
-       [ [m :: rest] -> if end_with s m then m else loop rest
+       [ [m :: rest] -> if end_with (Bytes.to_string s) m then m else loop rest
        | [] -> "" ];
    monsters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"}
 ;
@@ -278,7 +278,7 @@ value lang_fr =
    is_weapon s = List.exists (contains s) list_weapons;
    message_more s = do {
      let m = " -- Suite --" in
-     if end_with s m then m else ""
+     if end_with (Bytes.to_string s) m then Bytes.of_string m else Bytes.of_string ""
    };
    monsters = "AFXDEPILWJCHMNOGQRSTUVBKYZ"}
 ;
@@ -332,7 +332,7 @@ value pos_in_dung dung pos =
   pos.row > 0 && pos.row < dung.nrow - 1 &&
   pos.col >= 0 && pos.col < dung.ncol
 ;
-value dung_char dung pos = dung.tab.(pos.row).[pos.col];
+value dung_char dung pos = Bytes.get dung.tab.(pos.row) pos.col;
 
 value minus_bar = ['-'; '|'];
 value minus_bar_space = ['-'; '|'; ' '];
@@ -540,8 +540,8 @@ value old_can_move_to g in_room_or_at_door pos tpos =
   if not (in_dung g tpos) then False
   else if
     List.mem (dung_char g.dung tpos) list_border ||
-    List.mem g.dung.tab.(tpos.row).[pos.col] list_border ||
-    List.mem g.dung.tab.(pos.row).[tpos.col] list_border ||
+    List.mem (Bytes.get g.dung.tab.(tpos.row) pos.col) list_border ||
+    List.mem (Bytes.get g.dung.tab.(pos.row) tpos.col) list_border ||
     dung_char g.dung tpos = ' ' && current_room g tpos = None
   then False
   else True
@@ -590,7 +590,7 @@ value around_pos g pos = do {
     let pos = add_mov pos mov in
     string_set s k (if in_dung g pos then dung_char g.dung pos else ' ');
   };
-  {ar = s}
+  {ar = Bytes.to_string s}
 };
 
 value no_move = {di = 0; dj = 0};

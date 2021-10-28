@@ -1,0 +1,7 @@
+*.cm*
+*.o
+*.defo
+rogue
+rogbot
+rogue.*
+rogbot.*

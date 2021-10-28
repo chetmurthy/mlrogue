@@ -199,19 +199,19 @@ value dungeon_string g =
   Array.init (Array.length g.dungeon)
     (fun i -> do {
        let line = string_create (Array.length g.dungeon.(i)) in
-       for j = 0 to String.length line - 1 do {
+       for j = 0 to Bytes.length line - 1 do {
          string_set line j (Curses.mvinch i j);
        };
        line
      })
 ;
 
-value display_pause line = do {
+value display_pause (line: bytes) = do {
   let txt = " (pause)" in
   let something =
     loop (String.length txt) 79 where rec loop len i =
       if len = 0 then False
-      else if line.[i] = ' ' then loop (len - 1) (i - 1)
+      else if Bytes.get line i = ' ' then loop (len - 1) (i - 1)
       else True
   in
   if something then ()
@@ -269,7 +269,7 @@ value rgetchar_local_robot g rob = do {
   [ Some ch -> rgetchar_stdin ch
   | None -> do {
       let nrow = Array.length dung in
-      let ncol = String.length dung.(0) in
+      let ncol = Bytes.length dung.(0) in
       match
         try Some (Robot.play dung nrow ncol rob) with exc -> do {
           if f_bool.Efield.get g.env "no handle robot" False then raise exc
@@ -382,7 +382,7 @@ value inv_sel g pack mask prompt term =
     let maxlen = max maxlen (String.length prompt) in
     let col = DCOLS - (maxlen + 2) in
     let saved =
-      Array.init (len + 1) (fun _ -> String.make (maxlen + 2) ' ')
+      Array.init (len + 1) (fun _ -> Bytes.make (maxlen + 2) ' ')
     in
     for i = 0 to len do {
       for j = 0 to maxlen + 1 do {
@@ -425,7 +425,7 @@ value inv_sel g pack mask prompt term =
       for j = 0 to maxlen + 1 do {
         let (fg, bg) = saved_col.(i).(j) in
         Curses.color_set fg bg;
-        Curses.mvaddch i (j + col) saved.(i).[j]
+        Curses.mvaddch i (j + col) (Bytes.get saved.(i) j)
       };
     };
     Curses.color_set (-1) (-1);

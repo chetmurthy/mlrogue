@@ -138,8 +138,8 @@ value read_scores () =
     match try Some (open_in_bin score_file) with [ Sys_error _ -> None ] with
     [ Some ic -> do {
         let b = string_create (String.length score_magic) in
-        really_input ic b 0 (String.length b);
-        if b <> score_magic then do { close_in ic; None } else Some ic
+        really_input ic b 0 (Bytes.length b);
+        if Bytes.to_string b <> score_magic then do { close_in ic; None } else Some ic
       }
     | None -> None ]
   in

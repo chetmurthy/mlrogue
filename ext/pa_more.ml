@@ -7,18 +7,24 @@ open Pcaml;
 
 EXTEND
   GLOBAL: expr;
-  expr: LEVEL ":="
+  expr: LEVEL "^"
+    [ [ e1 = SELF; "^="; e2 = SELF; dummy ->
+          <:expr< $e1$ := $e1$ ^ $e2$ >> ] ]
+  ;
+  expr: LEVEL "*"
+    [ [ e1 = SELF; "*="; e2 = SELF; dummy ->
+          <:expr< $e1$ := $e1$ * $e2$ >>
+      | e1 = SELF; "/="; e2 = SELF; dummy ->
+          <:expr< $e1$ := $e1$ / $e2$ >> ] ]
+  ;
+  expr: LEVEL "+"
     [ [ e1 = SELF; "+="; e2 = SELF; dummy ->
           <:expr< $e1$ := $e1$ + $e2$ >>
       | e1 = SELF; "-="; e2 = SELF; dummy ->
-          <:expr< $e1$ := $e1$ - $e2$ >>
-      | e1 = SELF; "*="; e2 = SELF; dummy ->
-          <:expr< $e1$ := $e1$ * $e2$ >>
-      | e1 = SELF; "/="; e2 = SELF; dummy ->
-          <:expr< $e1$ := $e1$ / $e2$ >>
-      | e1 = SELF; "^="; e2 = SELF; dummy ->
-          <:expr< $e1$ := $e1$ ^ $e2$ >>
-      | e1 = SELF; "|="; e2 = SELF; dummy ->
+          <:expr< $e1$ := $e1$ - $e2$ >> ] ]
+  ;
+  expr: LEVEL "<"
+    [ [ e1 = SELF; "|="; e2 = SELF; dummy ->
           <:expr< $e1$ := $e1$ lor $e2$ >>
       | e1 = SELF; "&="; e2 = SELF; dummy ->
           <:expr< $e1$ := $e1$ land $e2$ >> ] ]

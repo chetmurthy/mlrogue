@@ -23,31 +23,31 @@ value single_unix_read s b ofs len =
 value rogbot_magic = "RGBT0001";
 
 value check_magic s = do {
-  let buff = String.make (String.length rogbot_magic) ' ' in
-  let len = single_unix_read s buff 0 (String.length buff) in
+  let buff = Bytes.make (String.length rogbot_magic) ' ' in
+  let len = single_unix_read s buff 0 (Bytes.length buff) in
   if len = 0 then False
   else do {
-    if buff = rogbot_magic then True
-    else if String.sub buff 0 4 = String.sub rogbot_magic 0 4 then
+    if buff = Bytes.of_string rogbot_magic then True
+    else if Bytes.to_string (Bytes.sub buff 0 4) = String.sub rogbot_magic 0 4 then
       failwith
         (sprintf "rogbot magic incompatible version (%s instead of %s)"
-           buff rogbot_magic)
+           (Bytes.to_string buff) rogbot_magic)
     else failwith "bad rogbot magic"
   }
 };
 
 value skip_newline s = do {
-  let buff = " " in
+  let buff = Bytes.of_string " " in
   let _ : int = single_unix_read s buff 0 1 in
-  if buff = "\n" then () else failwith "newline expected in protocol"
+  if buff = Bytes.of_string "\n" then () else failwith "newline expected in protocol"
 };
 
 value input_int s = do {
-  let buff = " " in
+  let buff = Bytes.of_string " " in
   loop 0 where rec loop n =
     let _ : int = single_unix_read s buff 0 1 in
-    match buff.[0] with
-    [ '0'..'9' -> loop (10 * n + Char.code buff.[0] - Char.code '0')
+    match Bytes.get buff 0 with
+    [ '0'..'9' -> loop (10 * n + Char.code (Bytes.get buff 0) - Char.code '0')
     | '\n' -> n
     | c ->
         failwith
@@ -81,14 +81,14 @@ value rec play_loop info s = do {
   [ Some tab -> do {
       home ();
       let nrow = Array.length tab in
-      let ncol = String.length tab.(0) in
+      let ncol = Bytes.length tab.(0) in
       for row = 0 to nrow - 1 do {
-        printf "%s" tab.(row);
+        printf "%s" (Bytes.to_string tab.(row));
         if row <> nrow - 1 then printf "\n" else ();
       };
       flush stdout;
       let (ch, info) = Robot.play tab nrow ncol info in
-      let _ : int = Unix.write s (String.make 1 ch) 0 1 in
+      let _ : int = Unix.write s (Bytes.make 1 ch) 0 1 in
       play_loop info s
     }
   | None -> () ]

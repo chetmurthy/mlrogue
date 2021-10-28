@@ -622,7 +622,7 @@ value find_all g pred =
     else if col = g.dung.ncol then loop list (row + 1) 0
     else
       let list =
-        if pred g.dung.tab.(row).[col] then [{row = row; col = col} :: list]
+        if pred (Bytes.get g.dung.tab.(row) col) then [{row = row; col = col} :: list]
         else list
       in
       loop list row (col + 1)
@@ -1297,7 +1297,7 @@ value room_contents g (rmin, cmin, rmax, cmax) =
          Array.init (cmax - cmin + 1)
            (fun j -> do {
               let col = cmin + j in
-              let ch = g.dung.tab.(row).[col] in
+              let ch = Bytes.get g.dung.tab.(row) col in
               if is_monster ch then has_mon.val := True else ();
               ch
             }))
@@ -1310,7 +1310,7 @@ value active_monsters_in_room g t (rmin, cmin, rmax, cmax) =
     if row > rmax then False
     else if col > cmax then loop (row + 1) cmin
     else if
-      is_monster g.dung.tab.(row).[col] &&
+      is_monster (Bytes.get g.dung.tab.(row) col) &&
       not (List.mem_assoc {row = row; col = col} g.frozen_monsters)
     then
       True
@@ -4110,22 +4110,22 @@ value furthest_pos_in_room_to g (rmin, cmin, rmax, cmax) mpos =
   in
   let rmin =
     loop rmin where rec loop rmin =
-      if g.dung.tab.(rmin).[mpos.col] = '^' then loop (rmin + 1)
+      if Bytes.get g.dung.tab.(rmin) mpos.col = '^' then loop (rmin + 1)
       else rmin
   in
   let cmin =
     loop cmin where rec loop cmin =
-      if g.dung.tab.(mpos.row).[cmin] = '^' then loop (cmin + 1)
+      if Bytes.get g.dung.tab.(mpos.row) cmin = '^' then loop (cmin + 1)
       else cmin
   in
   let rmax =
     loop rmax where rec loop rmax =
-      if g.dung.tab.(rmax).[mpos.col] = '^' then loop (rmax - 1)
+      if Bytes.get g.dung.tab.(rmax) mpos.col = '^' then loop (rmax - 1)
       else rmax
   in
   let cmax =
     loop cmax where rec loop cmax =
-      if g.dung.tab.(mpos.row).[cmax] = '^' then loop (cmax - 1)
+      if Bytes.get g.dung.tab.(mpos.row) cmax = '^' then loop (cmax - 1)
       else cmax
   in
   let cand_left =
@@ -4277,7 +4277,7 @@ value count_accessible_things_around g pos in_room =
     else if not (old_can_move_to g in_room pos (add_mov pos mov)) then
       loop nmov nmon1 nmon2 nobj di (dj + 1)
     else
-      let ch = g.dung.tab.(row+di).[col+dj] in
+      let ch = Bytes.get g.dung.tab.(row+di) (col+dj) in
       if List.mem ch list_mov_ch then
         loop [mov :: nmov] nmon1 nmon2 nobj di (dj + 1)
       else if is_attackable_monster g ch || g.held then

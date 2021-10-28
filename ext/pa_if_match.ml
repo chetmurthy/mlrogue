@@ -1,6 +1,7 @@
 (* $Id: pa_if_match.ml,v 1.6 2010/05/12 23:25:36 deraugla Exp $ *)
 
 #load "pa_extend.cmo";
+#load "q_ast_base.cmo";
 #load "q_ast.cmo";
 
 open Pcaml;

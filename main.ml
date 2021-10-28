@@ -120,18 +120,18 @@ value show_traps g =
   }
 ;
 
-value get_input_line g prompt insert if_cancelled do_echo = do {
+value get_input_line g prompt (insert : bytes) if_cancelled do_echo = do {
   message g prompt False;
   let n = String.length prompt in
   let (i, buf) =
-    if insert <> "" then do {
-      Curses.mvaddstr 0 (n + 1) insert;
-      let i = String.length insert in
+    if insert <> Bytes.of_string "" then do {
+      Curses.mvaddstr 0 (n + 1) (Bytes.to_string insert);
+      let i = Bytes.length insert in
       Curses.move 0 (n + i + 1);
       Curses.refresh ();
       (i, string_copy insert)
     }
-    else (0, "")
+    else (0, Bytes.of_string "")
   in
   let (buf, i, ch) =
     loop_i buf i where rec loop_i buf i =
@@ -153,8 +153,8 @@ value get_input_line g prompt insert if_cancelled do_echo = do {
           }
           else if i < MAX_TITLE_LENGTH - 2 then
             if ch <> ' ' || i > 0 then do {
-              let len = String.length buf in
-              let buf = if i = len then buf ^ " " else buf in
+              let len = Bytes.length buf in
+              let buf = if i = len then Bytes.cat buf (Bytes.of_string " ") else buf in
               string_set buf i ch;
               if do_echo then Curses.addch ch else Curses.addch '.';
               (buf, i + 1)
@@ -170,12 +170,12 @@ value get_input_line g prompt insert if_cancelled do_echo = do {
   check_message g;
   let i =
     loop_i i where rec loop_i i =
-      if i > 0 && buf.[i-1] = ' ' then loop_i (i - 1) else i
+      if i > 0 && Bytes.get buf (i-1) = ' ' then loop_i (i - 1) else i
   in
-  let buf = String.sub buf 0 i in
+  let buf = Bytes.sub buf 0 i in
   if ch = ROGUE_KEY_CANCEL || i = 0 then do {
     if if_cancelled <> "" then message g if_cancelled False else ();
-    ""
+    Bytes.of_string ""
   }
   else buf
 };
@@ -212,7 +212,8 @@ value call_it g =
               | Called s -> s
               | Identified -> "" ]
             in
-            let buf = get_input_line g (transl g.lang "Call it:") s "" True in
+            let buf = get_input_line g (transl g.lang "Call it:") (Bytes.of_string s) "" True in
+            let buf = Bytes.to_string buf in
             if buf <> "" then id.(i) := Called buf else ()
         | None ->
             message g
@@ -286,9 +287,9 @@ value discovered_kind g title name id tab = do {
   let maxlen = List.fold_left max 0 (List.map String.length list) in
   let len = List.length list in
   let col = DCOLS - (maxlen + 2) in
-  let saved = Array.make (len + 1) "" in
+  let saved = Array.make (len + 1) (Bytes.make 0 ' ') in
   for i = 0 to len do {
-    let a = String.make (maxlen + 2) ' ' in
+    let a = Bytes.make (maxlen + 2) ' ' in
     saved.(i) := a;
     for j = 0 to maxlen + 1 do { string_set a j (Curses.mvinch i (j + col)) };
   };
@@ -302,7 +303,7 @@ value discovered_kind g title name id tab = do {
       if String.contains "!?=/ \027" ch then ch else loop ()
   in
   for i = 0 to len do {
-    for j = 0 to maxlen + 1 do { Curses.mvaddch i (j + col) saved.(i).[j] };
+    for j = 0 to maxlen + 1 do { Curses.mvaddch i (j + col) (Bytes.get saved.(i) j) };
   };
   ch
 };
@@ -449,9 +450,9 @@ value wizardize g =
   }
   else
     let buf =
-      get_input_line g (transl g.lang "Wizard's password:") "" "" False
+      get_input_line g (transl g.lang "Wizard's password:") (Bytes.of_string "") "" False
     in
-    if buf = "password" then do {
+    if buf = Bytes.of_string "password" then do {
       g.wizard := True;
       g.score_only := True;
       message g (transl g.lang "Welcome, mighty wizard!") False
@@ -605,7 +606,8 @@ value instructions g =
 value change_lang g =
   let q = transl g.lang "Language:" in
   let q = if g.lang = "" then q else q ^ " (" ^ g.lang ^ ")" in
-  let new_lang = get_input_line g q "" "" True in
+  let new_lang = get_input_line g q (Bytes.of_string "") "" True in
+  let new_lang = Bytes.to_string new_lang in
   if new_lang <> "" && new_lang <> g.lang then do {
     g.lang := new_lang;
     clear_lexicon g.lang;
@@ -626,9 +628,10 @@ value change_lang g =
 
 value save_game g =
   let fname =
-    get_input_line g (transl g.lang "File name?") g.save_file
+    get_input_line g (transl g.lang "File name?") (Bytes.of_string g.save_file)
       (transl g.lang "Game not saved.") True
   in
+  let fname = Bytes.to_string fname in
   if fname <> "" then do {
     check_message g;
     message g fname False;

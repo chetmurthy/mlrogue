@@ -1,26 +1,29 @@
 (* $Id: translate.ml,v 1.27 2015/04/09 15:14:21 deraugla Exp $ *)
 
+module Internal = struct
+value string_make = Bytes.make;
 value string_set = Bytes.set;
+value string_get = Bytes.get;
 
 value lex = "rogue.lexicon";
 
 value lexicon = Hashtbl.create 1;
 value lexicon_mtime = ref 0.0;
-value lang = ref "";
+value lang = ref (Bytes.of_string "");
 
 value add_lexicon word transl =
   let transl =
     match transl with
     [ Some transl -> transl
-    | None -> "[" ^ word ^ "]" ]
+    | None -> Bytes.of_string ("[" ^ (Bytes.to_string word) ^ "]") ]
   in
   Hashtbl.add lexicon word transl
 ;
 
 value cut_trail_dot s =
-  let len = String.length s in
-  if (len >= 3 && s.[len-2] = ' ' || len = 1) && s.[len-1] = '.' then
-    String.sub s 0 (len - 1)
+  let len = Bytes.length s in
+  if (len >= 3 && Bytes.get s (len-2) = ' ' || len = 1) && Bytes.get s (len-1) = '.' then
+    Bytes.sub s 0 (len - 1)
   else s
 ;
 
@@ -30,40 +33,40 @@ value read_lexicon () = do {
     while True do {
       let s =
         let s = input_line ic in
-        cut_trail_dot s
+        cut_trail_dot (Bytes.of_string s)
       in
-      let len = String.length s in
-      if len >= 4 && String.sub s 0 4 = "    " then
-        let s = String.sub s 4 (len - 4) in
-        if lang.val <> "" then
-          loop "" where rec loop default =
-            let t = try Some (input_line ic) with [ End_of_file -> None ] in
+      let len = Bytes.length s in
+      if len >= 4 && Bytes.sub s 0 4 = Bytes.of_string "    " then
+        let s = Bytes.sub s 4 (len - 4) in
+        if lang.val <> (Bytes.of_string "") then
+          loop (Bytes.of_string "") where rec loop default =
+            let t = try Some (Bytes.of_string (input_line ic)) with [ End_of_file -> None ] in
             let ti =
               match t with
               [ Some t ->
-                  try Some (t, String.index t ':') with
+                  try Some (t, Bytes.index t ':') with
                   [ Not_found -> None ]
               | None -> None ]
             in
             match ti with
             [ Some (t, i) ->
-                let line_lang = String.sub t 0 i in
+                let line_lang = Bytes.sub t 0 i in
                 if line_lang = lang.val ||
-                   String.length lang.val > String.length line_lang &&
-                   String.sub lang.val 0 (String.length line_lang) =
+                   Bytes.length lang.val > Bytes.length line_lang &&
+                   Bytes.sub lang.val 0 (Bytes.length line_lang) =
                      line_lang
                 then
                   let t =
-                    if i + 2 < String.length t then
-                      String.sub t (i + 2) (String.length t - i - 2)
-                    else ""
+                    if i + 2 < Bytes.length t then
+                      Bytes.sub t (i + 2) (Bytes.length t - i - 2)
+                    else Bytes.of_string ""
                   in
                   let t = cut_trail_dot t in
                   if line_lang = lang.val then add_lexicon s (Some t)
                   else loop t
                 else loop default
             | None ->
-                add_lexicon s (if default = "" then None else Some default) ]
+                add_lexicon s (if default = Bytes.of_string "" then None else Some default) ]
         else add_lexicon s (Some s)
       else ();
     }
@@ -88,7 +91,8 @@ value gen_transl glang str = do {
 
 value transl glang str =
   try gen_transl glang str with
-  [ Not_found -> if lang.val = "" then str else "[" ^ str ^ "]" ]
+  [ Not_found -> if lang.val = Bytes.of_string "" then str
+                 else Bytes.of_string ("[" ^ (Bytes.to_string str) ^ "]") ]
 ;
 
 value fast_transl glang str =
@@ -98,20 +102,22 @@ value fast_transl glang str =
 
 value check_format ini_fmt (r : string) =
   let s : string = string_of_format (ini_fmt : format 'a 'b 'c) in
+  let s = Bytes.of_string s in
+  let r = Bytes.of_string r in
   let rec loop i j =
-    if i < String.length s - 1 && j < String.length r - 1 then
-      match (s.[i], s.[i + 1], r.[j], r.[j + 1]) with
+    if i < Bytes.length s - 1 && j < Bytes.length r - 1 then
+      match (Bytes.get s i, Bytes.get s (i + 1), Bytes.get r j, Bytes.get r (j + 1)) with
       [ ('%', x, '%', y) ->
           if x = y then loop (i + 2) (j + 2) else None
       | ('%', _, _, _) -> loop i (j + 1)
       | (_, _, '%', _) -> loop (i + 1) j
       | _ -> loop (i + 1) (j + 1) ]
-    else if i < String.length s - 1 then
-      if s.[i] = '%' then None else loop (i + 1) j
-    else if j < String.length r - 1 then
-      if r.[j] = '%' then None else loop i (j + 1)
+    else if i < Bytes.length s - 1 then
+      if Bytes.get s i = '%' then None else loop (i + 1) j
+    else if j < Bytes.length r - 1 then
+      if Bytes.get r j = '%' then None else loop i (j + 1)
     else
-      Some (Scanf.format_from_string r ini_fmt : format 'a 'b 'c)
+      Some (Scanf.format_from_string (Bytes.to_string r) ini_fmt : format 'a 'b 'c)
   in
   loop 0 0
 ;
@@ -127,15 +133,15 @@ value valid_format ini_fmt r =
 
 value ftransl glang (fmt : format 'a 'b 'c) =
   let sfmt : string = string_of_format fmt in
-  try valid_format fmt (gen_transl glang sfmt) with
+  try valid_format fmt (Bytes.to_string (gen_transl glang (Bytes.of_string sfmt))) with
   [ Not_found ->
-      if lang.val = "" then fmt
+      if lang.val = Bytes.of_string "" then fmt
       else
         (Scanf.format_from_string ("[" ^ sfmt ^ "]") fmt : format 'a 'b 'c) ]
 ;
 
 value erase str i j =
-  String.sub str 0 i ^ String.sub str j (String.length str - j)
+  Bytes.cat (Bytes.sub str 0 i) (Bytes.sub str j (Bytes.length str - j))
 ;
 
 (*
@@ -147,18 +153,18 @@ value erase str i j =
 
 value eval_set str =
   loop [] str 0 where rec loop set str i =
-    if i + 3 < String.length str then
-      if str.[i] = '@' && str.[i+1] = '(' && str.[i+3] <> '?' &&
-         str.[i+3] <> '-'
+    if i + 3 < Bytes.length str then
+      if Bytes.get str i = '@' && Bytes.get str (i+1) = '(' && Bytes.get str (i+3) <> '?' &&
+         Bytes.get str (i+3) <> '-'
       then
-        if str.[i+2] = '&' && str.[i+3] = ')' && i + 4 < String.length str
+        if Bytes.get str (i+2) = '&' && Bytes.get str (i+3) = ')' && i + 4 < Bytes.length str
         then
           loop set (erase str i (i + 5)) i
         else
           let (set, j) =
             loop set (i + 2) where rec loop set i =
-              if i < String.length str then
-                if str.[i] <> ')' then loop [str.[i] :: set] (i + 1)
+              if i < Bytes.length str then
+                if Bytes.get str i <> ')' then loop [Bytes.get str i :: set] (i + 1)
                 else (set, i + 1)
               else (set, i)
           in
@@ -168,22 +174,22 @@ value eval_set str =
 ;
 
 value rec apply_expr set str i =
-  if i + 1 < String.length str && str.[i+1] = '?' then
-    if List.mem str.[i] set then
+  if i + 1 < Bytes.length str && Bytes.get str (i+1) = '?' then
+    if List.mem (Bytes.get str i) set then
       let str = erase str i (i + 2) in
       let (str, i) = apply_expr set str i in
-      if i < String.length str && str.[i] = ':' then
+      if i < Bytes.length str && Bytes.get str i = ':' then
         let (str, j) = apply_expr set str (i + 1) in
         (erase str i j, i)
       else (str, i)
     else
       let (str, j) = apply_expr set str (i + 2) in
       let str = erase str i j in
-      if i < String.length str && str.[i] = ':' then
+      if i < Bytes.length str && Bytes.get str i = ':' then
         let str = erase str i (i + 1) in
         apply_expr set str i
       else (str, i)
-  else if i < String.length str && (str.[i] = ':' || str.[i] = ')') then
+  else if i < Bytes.length str && (Bytes.get str i = ':' || Bytes.get str i = ')') then
     (str, i)
   else apply_expr set str (i + 1)
 ;
@@ -209,12 +215,12 @@ value rec apply_expr set str i =
 
 value eval_app set str =
   loop str 0 where rec loop str i =
-    if i + 3 < String.length str then
-      if str.[i] = '@' && str.[i+1] = '(' && str.[i+3] <> '-' then (
+    if i + 3 < Bytes.length str then
+      if Bytes.get str i = '@' && Bytes.get str (i+1) = '(' && Bytes.get str (i+3) <> '-' then (
         let str = erase str i (i + 2) in
         let (str, i) = apply_expr set str i in
-        if i < String.length str then
-          if str.[i] = ')' then loop (erase str i (i + 1)) i
+        if i < Bytes.length str then
+          if Bytes.get str i = ')' then loop (erase str i (i + 1)) i
           else loop str i
         else str
       )
@@ -234,19 +240,19 @@ value eval_app set str =
  *)
 
 value rec eval_shift s =
-  let t = String.make (String.length s) '#' in
+  let t = string_make (Bytes.length s) '#' in
   loop False 0 0 where rec loop changed i j =
-    if i + 4 < String.length s && s.[i] = '@' && s.[i+1] = '(' &&
-       s.[i+3] = '-'
+    if i + 4 < Bytes.length s && Bytes.get s i = '@' && Bytes.get s (i+1) = '(' &&
+       Bytes.get s (i+3) = '-'
     then
-      let nleft = Char.code s.[i+2] - Char.code '0' in
-      let to_the_end = s.[i+4] = '-' in
+      let nleft = Char.code (Bytes.get s (i+2)) - Char.code '0' in
+      let to_the_end = Bytes.get s (i+4) = '-' in
       let k = if to_the_end then i + 5 else i + 4 in
-      if k < String.length s && s.[k] = ')' then (
+      if k < Bytes.length s && Bytes.get s k = ')' then (
         let l =
           loop nleft (i - 1) where rec loop nleft l =
             if l > 0 then
-              if s.[l] = ' ' then
+              if Bytes.get s l = ' ' then
                 if nleft <= 1 then l + 1
                 else loop (nleft - 1) (l - 1)
               else loop nleft (l - 1)
@@ -255,56 +261,56 @@ value rec eval_shift s =
         let len = i - l in
         let j = j - len in
         let k = k + 1 in
-        let i = if k < String.length s && s.[k] = ' ' then k + 1 else k in
+        let i = if k < Bytes.length s && Bytes.get s k = ' ' then k + 1 else k in
         let (i, j) =
           if to_the_end then
             loop i j where rec loop i j =
-              if i < String.length s then do {
-                string_set t j s.[i];
+              if i < Bytes.length s then do {
+                string_set t j (Bytes.get s i);
                 loop (i + 1) (j + 1)
               }
               else do {
                 let j =
-                  if t.[j-1] <> ' ' then do { string_set t j ' '; j + 1 }
+                  if string_get t (j-1) <> ' ' then do { string_set t j ' '; j + 1 }
                   else j
                 in
-                String.blit s l t j len;
+                Bytes.blit s l t j len;
                 (i, j + len)
               }
           else
             loop i j where rec loop i j =
-              if i < String.length s then
-                if s.[i] = ' ' then do {
+              if i < Bytes.length s then
+                if Bytes.get s i = ' ' then do {
                   string_set t j ' ';
-                  String.blit s l t (j + 1) len;
+                  Bytes.blit s l t (j + 1) len;
                   (i, j + 1 + len)
                 }
                 else do {
-                  string_set t j s.[i];
+                  string_set t j (Bytes.get s i);
                   loop (i + 1) (j + 1)
                 }
-              else if k < String.length s && s.[k] = ' ' then do {
+              else if k < Bytes.length s && Bytes.get s k = ' ' then do {
                 string_set t j ' ';
-                String.blit s l t (j + 1) len;
+                Bytes.blit s l t (j + 1) len;
                 (i, j + 1 + len)
               }
               else do {
-                String.blit s l t j len;
+                Bytes.blit s l t j len;
                 (i, j + len)
               }
         in
         loop True i j
       )
       else do {
-        string_set t j s.[i];
+        string_set t j (Bytes.get s i);
         loop changed (i + 1) (j + 1)
       }
-    else if i < String.length s then do {
-      string_set t j s.[i];
+    else if i < Bytes.length s then do {
+      string_set t j (Bytes.get s i);
       loop changed (i + 1) (j + 1)
     }
-    else if changed then eval_shift (String.sub t 0 j)
-    else String.sub t 0 j
+    else if changed then eval_shift (Bytes.sub t 0 j)
+    else Bytes.sub t 0 j
 ;
 
 (* etransl make grammatical transformations indicated inside strings
@@ -370,11 +376,20 @@ value etransl str =
 ;
 
 value translc lang c =
-  let s = transl lang (String.make 1 c) in
-  if String.length s = 1 then s.[0] else c
+  let s = transl lang (Bytes.make 1 c) in
+  if Bytes.length s = 1 then Bytes.get s 0 else c
 ;
 
 value clear_lexicon lang = do {
   Hashtbl.clear lexicon;
   lexicon_mtime.val := 0.0;
 };
+
+end ;
+
+value ftransl a b = Internal.ftransl (Bytes.of_string a) b ;
+value transl a b = Bytes.to_string (Internal.transl (Bytes.of_string a) (Bytes.of_string b)) ;
+value translc a b = Internal.translc (Bytes.of_string a) b ;
+value etransl a = Bytes.to_string (Internal.etransl (Bytes.of_string a)) ;
+value clear_lexicon a = Internal.clear_lexicon (Bytes.of_string a) ;
+value fast_transl a b = Bytes.to_string (Internal.fast_transl (Bytes.of_string a) (Bytes.of_string b)) ;

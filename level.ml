@@ -1,7 +1,7 @@
 (* $Id: level.ml,v 1.67 2010/04/27 11:46:10 deraugla Exp $ *)
 
 #use "rogue.def";
-#load "pa_more.cmo";
+#load "ext/pa_more.cmo";
 
 open Rogue;
 open Rfield;

@@ -265,10 +265,10 @@ value is_very_hungry g =
 
 value is_identified_wand s = contains s "[";
 
-value remove_message_more g mess =
+value remove_message_more g (mess : bytes) =
   let transl = transl g in
   let m = transl.message_more mess in
-  if m <> "" then String.sub mess 0 (String.length mess - String.length m)
+  if m <> Bytes.of_string "" then Bytes.sub mess 0 (Bytes.length mess - Bytes.length m)
   else mess
 ;
 
@@ -277,10 +277,10 @@ value remove_message_more g mess =
 value eq_dung g dung1 dung2 =
   loop 0 0 where rec loop row col =
     if row = Array.length dung1 then True
-    else if col = String.length dung1.(0) then loop (row + 1) 0
+    else if col = Bytes.length dung1.(0) then loop (row + 1) 0
     else
-      let ch1 = dung1.(row).[col] in
-      let ch2 = dung2.(row).[col] in
+      let ch1 = Bytes.get dung1.(row) col in
+      let ch2 = Bytes.get dung2.(row) col in
       if ch1 = ch2 then loop row (col + 1)
       else if is_monster ch1 || is_monster ch2 then loop row (col + 1)
       else False
@@ -492,7 +492,7 @@ value is_entering_a_monsters_room g t =
                     else if col > cmax then loop cnt (row + 1) cmin
                     else
                       let cnt =
-                        if is_monster g.dung.tab.(row).[col] then cnt + 1
+                        if is_monster (Bytes.get g.dung.tab.(row) col) then cnt + 1
                         else cnt
                       in
                       loop cnt row (col + 1)
@@ -517,8 +517,8 @@ value nb_diff g =
         if row = g.dung.nrow then n
         else if col = g.dung.ncol then loop n (row + 1) 0
         else
-          let od = old_g.dung.tab.(row).[col] in
-          let nd = g.dung.tab.(row).[col] in
+          let od = Bytes.get old_g.dung.tab.(row) col in
+          let nd = Bytes.get g.dung.tab.(row) col in
           if nd = od || nd = '.' || od = '.' then
             loop n row (col + 1)
           else
@@ -533,7 +533,7 @@ value is_score_display g =
       loop 0 0 where rec loop col i =
         if i = String.length score_txt then True
         else if col = g.dung.ncol then loop_row (row + 1)
-        else if g.dung.tab.(row).[col] = score_txt.[i] then
+        else if Bytes.get g.dung.tab.(row) col = score_txt.[i] then
           loop (col + 1) (i + 1)
         else loop (col - i + 1) 0
 ;
@@ -595,15 +595,16 @@ value add_object_in_pack g ch s =
   let transl = transl g in
   let (nb, obj) =
     let n =
-      if s.[0] >= '1' && s.[0] <= '9' then
+      if Bytes.get s 0 >= '1' && Bytes.get s 0 <= '9' then
         let len =
           loop 0 where rec loop i =
-            if s.[i] >= '0' && s.[i] <= '9' then loop (i + 1)
+            if Bytes.get s i >= '0' && Bytes.get s i <= '9' then loop (i + 1)
             else i
         in
-        int_of_string (String.sub s 0 len)
+        int_of_string (String.of_bytes (Bytes.sub s 0 len))
       else 1
     in
+    let s = Bytes.to_string s in
     if transl.is_armor s then
       let v = armor_value s in
       let prot = transl.is_leather_armor s in
@@ -665,15 +666,15 @@ value is_alpha c = c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z';
 
 exception Breakpoint of int;
 
-value play tab nrow ncol t = do {
+value play (tab : array bytes) nrow ncol t = do {
   let message =
     let first_line_len =
-      loop (String.length tab.(0) - 1) where rec loop i =
+      loop (Bytes.length tab.(0) - 1) where rec loop i =
         if i < 0 then 0
-        else if tab.(0).[i] = ' ' then loop (i - 1)
+        else if Bytes.get tab.(0) i = ' ' then loop (i - 1)
         else i + 1
     in
-    String.sub tab.(0) 0 first_line_len
+    Bytes.sub tab.(0) 0 first_line_len
   in
   let g =
     let trail =
@@ -695,8 +696,8 @@ value play tab nrow ncol t = do {
           (rogue_pos, trail)
         }
 (**)
-        else if col = String.length tab.(row) then loop (row + 1) 0
-        else if tab.(row).[col] = '@' then do {
+        else if col = Bytes.length tab.(row) then loop (row + 1) 0
+        else if Bytes.get tab.(row) col = '@' then do {
           let pos = {row = row; col = col} in
           let inc =
             match t.t_prev_game with
@@ -733,14 +734,14 @@ value play tab nrow ncol t = do {
     in
     let is_message_more =
       match t.t_prev_game with
-      [ Some g -> (transl g).message_more message <> ""
+      [ Some g -> (transl g).message_more message <> Bytes.of_string ""
       | None -> False ]
     in
     match t.t_prev_game with
     [ Some g -> do {
         let prev_level = g.level in
         let status_line_opt =
-          try Some ((transl g).scan_status_line tab.(g.dung.nrow-1)) with
+          try Some ((transl g).scan_status_line (Bytes.to_string tab.(g.dung.nrow-1))) with
           [ Scan_failure _ -> None ]
         in
         let level =
@@ -766,7 +767,7 @@ value play tab nrow ncol t = do {
         if level <> prev_level ||
            prev_level = 99 &&
               (t.t_prev_comm = Some (Coth '>') ||
-               (transl g).is_fallen_down message)
+               (transl g).is_fallen_down (Bytes.to_string message))
         then do {
           for i = 0 to 2 do {
             for j = 0 to 2 do {
@@ -874,8 +875,8 @@ value play tab nrow ncol t = do {
              (match if g.time = 1 then None else g.status_line with
               [ Some sl -> sprintf " hp %d(%d)" sl.sl_hp sl.sl_max_hp
               | None -> "" ])
-             (if message <> "" then
-                sprintf " \"%s\"" (if t.t_no_lang_dep then "..." else message)
+             (if message <> Bytes.of_string "" then
+                sprintf " \"%s\"" (if t.t_no_lang_dep then "..." else Bytes.to_string message)
               else "")
              (if g.pack_full then " <full>" else "")
              (if g.armor_cursed then " <acursed>" else "")
@@ -895,22 +896,23 @@ value play tab nrow ncol t = do {
   else ();
 
   let s = remove_message_more g message in
-  let i = String.length s in
+  let i = Bytes.length s in
 
-  if i > 3 && s.[i-3] = '(' && s.[i-1] = ')' && is_low_alpha s.[i-2] then do {
-    let ch = s.[i-2] in
-    let s = String.sub s 0 (i-4) in
+  if i > 3 && Bytes.get s (i-3) = '(' && Bytes.get s (i-1) = ')' && is_low_alpha (Bytes.get s (i-2)) then do {
+    let ch = Bytes.get s (i-2) in
+    let s = Bytes.sub s 0 (i-4) in
     g.on_something_at := None;
     add_object_in_pack g ch s
   }
-  else if i > 3 && is_low_alpha s.[0] && s.[1] = ')' && s.[2] = ' ' then do {
-    let ch = s.[0] in
-    let s = String.sub s 3 (i - 3) in
+  else if i > 3 && is_low_alpha (Bytes.get s 0) && Bytes.get s 1 = ')' && Bytes.get s 2 = ' ' then do {
+    let ch = Bytes.get s 0 in
+    let s = Bytes.sub s 3 (i - 3) in
     add_object_in_pack g ch s;
     if t.t_move_trace then trace_pack g t else ();
   }
   else ();
 
+  let message = Bytes.to_string message in
   if message <> "" then do {
     if transl.is_message_moved_onto message then do {
       let pos = rogue_pos g in
